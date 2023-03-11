@@ -3,6 +3,8 @@ package com.bighiccups.qrobackend.controller;
 import java.util.*;
 import java.util.stream.Collectors;
 import javax.validation.Valid;
+
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -10,11 +12,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import com.bighiccups.qrobackend.dao.RoleRepository;
 import com.bighiccups.qrobackend.dao.UserRepository;
 import com.bighiccups.qrobackend.model.AuthResponse;
@@ -25,10 +23,12 @@ import com.bighiccups.qrobackend.model.SignupRequest;
 import com.bighiccups.qrobackend.model.User;
 import com.bighiccups.qrobackend.security.JwtTokenUtil;
 
+@Slf4j
 @RestController
 @CrossOrigin(origins="http://localhost:4200") 
 @RequestMapping("/auth")
 public class AuthController {
+
 	@Autowired
 	UserRepository userRepository;
 	@Autowired
@@ -42,7 +42,7 @@ public class AuthController {
 	
 	@PostMapping("/login")
 	public ResponseEntity<?> userLogin(@Valid @RequestBody User user) {
-		System.out.println("AuthController -- userLogin");
+		log.info("User login request received");
 		Authentication authentication = authenticationManager.authenticate(
 					new UsernamePasswordAuthenticationToken(user.getUserName(), user.getPassword()));
 		
@@ -59,19 +59,23 @@ public class AuthController {
 	}
 	
 	@PostMapping("/signup")
-	public ResponseEntity<?> userSignup(@Valid @RequestBody SignupRequest signupRequest) {
+	public ResponseEntity<?> userSignup(@Valid @RequestBody SignupRequest signupRequest,
+										@RequestHeader("Accept-Language") Locale locale) {
+		log.info("User signup request received");
+		ResourceBundle messages = ResourceBundle.getBundle("i18n/messages", locale);
+
 		if(userRepository.existsByUserName(signupRequest.getUserName())){
-			return ResponseEntity.badRequest().body("Username is already taken");
+			return ResponseEntity.badRequest().body(messages.getString("user.already-exists"));
 		}
 		if(userRepository.existsByEmail(signupRequest.getEmail())){
-			return ResponseEntity.badRequest().body("Email is already taken");
+			return ResponseEntity.badRequest().body(messages.getString("email.already-exists"));
 		}
 		User user = new User();
 		Set<Role> roles = new HashSet<>();
 		user.setUserName(signupRequest.getUserName());
 		user.setEmail(signupRequest.getEmail());
 		user.setPassword(encoder.encode(signupRequest.getPassword()));
-		//System.out.println("Encoded password--- " + user.getPassword());
+		log.info("User password encoded: " + user.getPassword());
 		String[] roleArr = signupRequest.getRoles();
 
 		if(roleArr == null) {
@@ -86,12 +90,12 @@ public class AuthController {
 					roles.add(roleRepository.findByRoleName(Roles.ROLE_USER).get());
 					break;
 				default:
-					return ResponseEntity.badRequest().body("Specified role not found");
+					return ResponseEntity.badRequest().body(messages.getString("role.not-found"));
 			}
 		}
 		user.setRoles(roles);
 		userRepository.save(user);
-		return ResponseEntity.ok("User signed up successfully");
+		return ResponseEntity.ok(messages.getString("user.login-success"));
 	}
 
 }

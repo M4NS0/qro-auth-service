@@ -1,6 +1,8 @@
 package com.bighiccups.qrobackend.controller;
 
+import com.bighiccups.qrobackend.dao.UserRepository;
 import com.bighiccups.qrobackend.model.JwtRequest;
+import com.bighiccups.qrobackend.model.User;
 import com.bighiccups.qrobackend.security.JwtTokenUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -12,6 +14,8 @@ import org.springframework.web.bind.annotation.*;
 public class UserController {
 
 	private final JwtTokenUtil jwtTokenUtil;
+	@Autowired
+	private UserRepository userRepository;
 
 	@Autowired
 	public UserController(JwtTokenUtil jwtTokenUtil) {
@@ -37,11 +41,14 @@ public class UserController {
 
 	@GetMapping("/getuserbyjwt")
 	@PreAuthorize("hasRole('ROLE_USER') or hasRole('ROLE_ADMIN')")
-	public String getUserByJwt(@RequestBody JwtRequest jwtRequest) {
+	public User getUserByJwt(@RequestBody JwtRequest jwtRequest) {
 		String token = jwtRequest.getToken();
-		return jwtTokenUtil.getUserNameFromJwtToken(token);
-	}
-	// make it return a user object to future microservice
-	// adjust all messages mocking it into pmessage.properties.en //pt
+		User user = new User();
+		user.setUserName(jwtTokenUtil.getUserNameFromJwtToken(token));
+		user.setId(userRepository.findByUserName(user.getUserName()).get().getId());
+		user.setEmail(userRepository.findByUserName(user.getUserName()).get().getEmail());
+		user.getRoles().add(userRepository.findByUserName(user.getUserName()).get().getRoles().iterator().next());
 
+		return user;
+	}
 }
